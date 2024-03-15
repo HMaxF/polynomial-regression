@@ -1,2 +1,2 @@
-# polynomial-regression
-Polynomial Regression demo using python in jupyter notebook 
+# Polynomial Regression
+Simple Polynomial Regression demo using Python code in Jupyter Notebook 
