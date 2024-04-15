@@ -12,4 +12,4 @@ Simple Polynomial Regression demo using Python code in Jupyter Notebook
 - Inside the code there is Matplotlib plots in 3D (3-axis values) to visualize the data for better understanding of Polynomial Regression.
 
 # Reference:
-https://quick.work/?page=view-blog&id=48&title=Polynomial+Regression+in+Python
+https://quick.work/?page=view-blog&id=50&title=Polynomial+Regression+in+Python
