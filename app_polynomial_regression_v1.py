@@ -203,7 +203,7 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
     y_poly_pred = None
 
     # EXAMPLE logic to find optional 'degree' ONLY up to 10
-    while degree <= 5 and a_r2_score < min_r2_score: 
+    while degree <= 10 and a_r2_score < min_r2_score: 
         """
         WARNING: the higher the 'degree' value, the SLOWER the prediction !!!
         """
@@ -220,6 +220,7 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
         # predict the training data to see r2_score
         y_poly_pred = modelLR.predict(X_train_poly)
         
+        # NOTE: in this demo, we only use r2_score() to check the accuracy
         a_r2_score = r2_score(y_train, y_poly_pred)
         if a_r2_score < min_r2_score:
             print(f"degree = {degree} only got r2 score = {a_r2_score}")
@@ -238,6 +239,22 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
             break
 
         degree += 1 # increase trial counter
+
+    
+
+    #################################################
+    # recreate the model and the poly using the degree_highest_r2_score 
+    # because current model and poly may be different than HIGHEST R2 model & poly.
+
+    poly = PolynomialFeatures(degree=degree_highest_r2_score, include_bias=False)
+
+    # transform X_train value to poly        
+    X_train_poly = poly.fit_transform(X_train.values)
+
+    # train the transformed (using PolynomialFeatures) data
+    # with only values (exclude header text)
+    modelLR.fit(X_train_poly, y_train.values)
+    #################################################
 
     # show the coefficient and intercept value
     print(f"***\n{modelLR.coef_ = }\n{modelLR.intercept_ = }")
@@ -313,6 +330,7 @@ if __name__ == "__main__":
         
         model, poly = create_polynomial_regression_model(df)
         if model is None:
+            # NOTE: TESTING only !!
             create_mapped_text_to_csv(input_filename, df)
         else:
             # get input filename, replace extension '.csv' to '.model'
