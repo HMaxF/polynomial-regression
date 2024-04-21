@@ -13,67 +13,15 @@ import json
 
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
-# from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
+
+from sklearn.metrics import mean_squared_error # == [(a - b) ** 2]
+from sklearn.metrics import mean_absolute_error # == [abs(a - b)]
 
 import pickle # to save/load model to/from file
 
 import argparse
-
-def buildModelBasedOnCSV(csv_filepath):
-
-    try:
-        df = pd.read_csv(csv_filepath)
-
-        # define X ==> data to train (independent) and y ==> the target (dependent, annotated)
-        X = df.drop(df.columns[-1], axis=1) # numpy.ndarray
-        y = df.take([-1], axis=1)
-
-        return df
-    except FileNotFoundError:
-        print(f"Error, {csv_filepath} is not found")
-
-    return None
-
-
-def createModels():
-
-    print('*** createModels()')
-
-    # create model by fitting (train) the prepared data
-    global modelLR
-    modelLR = LinearRegression()
-
-
-    """
-    problem: got warning message
-    /Library/Frameworks/Python.framework/Versions/3.10/lib/python3.10/site-packages/sklearn/utils/validation.py:1229: DataConversionWarning: A column-vector y was passed when a 1d array was expected. Please change the shape of y to (n_samples, ), for example using ravel().
-    y = column_or_1d(y, warn=True)
-
-    solution: because y_GroundTruth is 1d then add .values.ravel()
-    """
-    # remove title from X, only use the .values (numerical) because y is also values
-    modelLR.fit(x_Features.values, y_GroundTruth.values.ravel())
-
-    # using column name, it will also only get the 'values'
-    #modelLR.fit([x_Features['location'], x_Features['size'], x_Features['age']].values, y_GroundTruth)
-
-    # show the coefficient and intercept value for the Linear Regression !
-    print(f"coef: {modelLR.coef_}")
-    print(f"intercept: {modelLR.intercept_}")
-
-    global modelSVM
-    modelSVM = SVC()
-    # remove title from X, only use the .values (numerical) because y is also values
-    modelSVM.fit(x_Features.values, y_GroundTruth.values.ravel())
-
-    global modelDTC
-    modelDTC = DecisionTreeClassifier()
-    # remove title from X, only use the .values (numerical) because y is also values
-    modelDTC.fit(x_Features.values, y_GroundTruth.values.ravel())
-
-    save_model()
 
 def save_model(model, poly, filename):
     print('*** save_model()')
@@ -198,7 +146,7 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
 
     a_r2_score = 0
 
-    min_r2_score = 0.99 # if more than maybe overfit
+    min_r2_score = 0.90 # if more than maybe overfit
 
     y_poly_pred = None
 
@@ -258,12 +206,50 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
 
     # show the coefficient and intercept value
     print(f"***\n{modelLR.coef_ = }\n{modelLR.intercept_ = }")
-    #print(f"\nr2 score = {a_r2_score}, degree = {degree}\n***")
     print(f"\nHighest r2 score = {highest_r2_score}, degree = {degree_highest_r2_score}\n***")
-    print(f"\ntarget and predicted")
-    print(y_train, y_poly_pred.astype(int))
+
+    ### get mean value of error 
+
+    # change to 1D and convert to int
+    y_poly_pred_flat = y_poly_pred.flatten().astype(int) 
+    print(f"Error rate: {mean_absolute_error(y_train['Price'], y_poly_pred_flat)}")
+
+    ### debugging: compare and find outlier
+    temp = find_outlier_as_table(y_train['Price'], y_poly_pred_flat, 50)
+    pd.set_option('display.max_rows', None)  # Set max_rows to None to display all rows  
+    print(temp) #display
 
     return degree_highest_r2_score, poly
+
+def find_outlier_as_table(target, predicted, threshold):
+    """
+    outlier is data point that stands out from the rest of the group.
+    It's either much higher or lower than most of the other data points in the set.
+
+    Create a DataFrame containing target, predicted, MAE, and outlier flag.
+    Parameters:
+    target (list or array-like): The array of actual values.
+    predicted (list or array-like): The array of predicted values.
+    threshold (float): The threshold value for detecting outliers.
+
+    Returns:
+    pandas.DataFrame: DataFrame containing target, predicted, MAE, and outlier flag.
+    """
+    # Calculate Mean Absolute Error (MAE)
+    mae = [abs(t - p) for t, p in zip(target, predicted)]
+    
+    # Determine outliers
+    outliers = [1 if error > threshold else 0 for error in mae]
+    
+    # Create DataFrame
+    df = pd.DataFrame({
+        'target': target,
+        'predicted': predicted,
+        'mae': mae,
+        'outlier': outliers
+    })
+    
+    return df
 
 def load_csv_into_dataframe(csv_filename):
     try:
@@ -279,11 +265,14 @@ def load_csv_into_dataframe(csv_filename):
 def show_usage():
     print(f"Simple Polynomial Regression")
     print(f"positional arguments:")
-    print(f"   1st argument is a filename, either '.csv' or '.model'.")
-    print(f"      If the filename is '.csv' then this app will create a model and save it to a file with the same filename '.model'")
-    print(f"      If the filename is '.model' then this app will load the model (without building).")
-    print(f"   2nd argument is a data to predict, eg: \"4,5,6,7\" and will generate the prediction value.")
-    print(f"\n\nExample: mydata.csv \"[[1,25], [2,38], [2,29]]\"")
+    print(f"   1st argument is a filename with these file extension:")
+    print(f"      If the extension is '.csv' then this app will create a model and save it to a file with the same filename with extension '.model'")
+    print(f"      If the extension is '.model' then this app will load the model (without building).")
+    print(f"   2nd argument is a data-to-predict that either a single value array or multiple value array.")
+    print(f"\n\nExample:")
+    print(f"   mydata.csv \"[[76]]\"")
+    print(f"   mydata.model \"[[10],[20],[30],[40]]\"")
+    print(f"   mydata.csv \"[[1,25], [2,38], [2,29]]\"")
 
 if __name__ == "__main__":
 
