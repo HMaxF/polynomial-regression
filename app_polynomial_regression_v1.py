@@ -1,7 +1,7 @@
 """
 Application to build Machine Learning model based on input data.
 
-App v0.98
+App v0.99
 
 Hariyanto Lim
 """
@@ -16,7 +16,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
 
-from sklearn.metrics import mean_squared_error # == [(a - b) ** 2]
+#from sklearn.metrics import mean_squared_error # == [(a - b) ** 2]
 from sklearn.metrics import mean_absolute_error # == [abs(a - b)]
 
 import pickle # to save/load model to/from file
@@ -24,119 +24,168 @@ import pickle # to save/load model to/from file
 import argparse
 
 def save_model(model, poly, filename):
-    print('*** save_model()')
+    print('### save_model()')
 
     # save the model and the poly to disk
     pickle.dump((model, poly), open(filename, 'wb'))
 
-def load_model(filename):    
+def load_model(filename):
 
     try:
         # load both model and poly
         model, poly = pickle.load(open(filename, 'rb'))
 
-        print(f"*** load_model(): '{filename}' loaded")
+        print(f"### load_model(): '{filename}' loaded")
 
         return model, poly
 
     except FileNotFoundError:
-
-        print(f"*** load_model(): '{filename}' not found")
-        return None
+        print(f"### load_model(): error '{filename}' not found")
 
     return None
 
+def evaluate_model(modelLR, poly, X, y):
 
-def create_mapped_text_to_csv(original_filename, df):
-    """
-    prepare and cleaning data before training
-    NOTES:
-    1. in Machine Learning, many times are spent to prepare and clean data.
-    2. Below is only an example of "cleaning" and "preparation"
-    """
+    if poly is None:
+        # using Linear
+        y_pred = modelLR.predict(X)
+    else:
+        # using poly
+        # convert data to predict to poly
 
-    """
-    Show how to display all uniques value of a column
-    """
-    print(f"Example to convert 'text' to integer value")
+        # transform X_train value to poly to make it in the same form
+        X_poly = poly.transform(X)
 
-    unique_text = df['Area'].unique()        
-
-    # create DataFrame to map text as integer
-    df_dict = pd.DataFrame()
-    df_dict['text'] = unique_text
-    df_dict['integer'] = pd.Series(unique_text).astype('category').cat.codes.values
-    print(df_dict)
+        y_pred = modelLR.predict(X_poly)
 
     """
-    Convert unique text to integer value
-    """
-    # prepare and cleaning data before training
-    # NOTE: in Machine Learning, many times are spent to prepare and clean data.
-
-    # add a new column 'brand_int' to represent 'brand' string, the value is start from 1 (not 0)
-    df['area_int'] = df['Area'].rank(method='dense', ascending=True).astype(int)
-
-    """
-    Optional to save mapped value to separated CSV
-    """
-    # get mapped values
-    mapped_text = df[['Area','area_int']]
-
-    # keep unique only
-    mapped_text.drop_duplicates(inplace=True) # may generate warning, can be ignored
-
-    # save mapped brand to user, so user can understand it
-    mapped_text.to_csv(original_filename + "_dictionary_mapped_text_to_integer.csv", index=False)
-
-    """
-    Fix Dataframe
+    LEARNING POINT: check the accuracy after predict
     """    
-    df.drop(['Area'], axis=1, inplace=True)
+    # 1st check using R2 score
+    a_r2_score = r2_score(y, y_pred)
+    
+    # 2nd check using MAE (Mean Absolute Error)
+    mae = mean_absolute_error(y, y_pred)
+    
+    #print(f"\n### accuracy check")
+    print(f"R2 score = {a_r2_score:.7f}, [closer to 1.0 is better]")
+    print(f"MeanAbsoluteError = {mae:,.1f}, [close to 0.0 is better]")
+    #print(f"###\n")
 
-    # Get the last column name
-    last_column_name = df.columns[-1]
+    ####### OPTIONAL: extra task to find outliers using MAE (Mean Absolute Error) #####################
+    find_outliers = True 
+    if find_outliers:
+        # change to 1D and convert to int
+        y_pred = y_pred.flatten().astype(int) 
+        #print(f"Error rate: {mean_absolute_error(y, y_pred)}")
 
-    # Extract the last column
-    last_column = df.pop(last_column_name)
+        ### debugging: compare and find outlier
+        temp = find_outlier_as_table(y.flatten(), y_pred, 1000) # flatten y to 1D array
 
-    # Insert the last column at the beginning
-    df.insert(0, last_column_name, last_column)
+        print(f"===== Outliers table =====")
+        #pd.set_option('display.max_rows', None)  # Set max_rows to None to display all rows  
+        print(temp) #display
 
-    # rearrange column
-    #df = df[['area_int', 'model_year', 'milage', 'price']]
+        """
+        NOTE: after outliers are found, make list of reasons whether to keep or remove outliers,
+        1. Sometimes outliers are useful in continuous regression.
+        2. Analyze if one or more features may not have strong **Correlation**, so need to check and remove the feature.
+        """
 
-    # save to a new CSV
-    df.to_csv(original_filename + '_fixed.csv', index=False)
+    ############ end of optional #####################################
+
+    return
+
 
 # function to build optimal model
-def create_polynomial_regression_model(df):
+def create_model(df, use_polynomial):
+    """
+    Main job: create model from DataFrame    
+    """
+
+    print(f"### create_model(DataFrame, {use_polynomial=})")
 
     # define X ==> data to train (independent) and y ==> the target (dependent, annotated)
     X = df.drop(df.columns[-1], axis=1) # df.columns[-1] == the most right side column
     y = df.take([-1], axis=1)
 
-    # check the content of X, all columns should be numerical (int or float), can not be string !!
+    """
+    Optional check: data to learn (X) should be numerical (int or float), there should NOT be any blank, text, or symbol.    
+    """    
     numeric_df = df.apply(pd.to_numeric, errors='coerce')
     is_all_numeric = not numeric_df.isnull().values.any()
     if is_all_numeric == False:
-        print(f"the data content of CSV to be used as training model has non-numeric value, please fix this!")
+        print(f"*** ERROR: the data content of CSV to be used as training model has non-numeric value, please fix this!")
         print(df)
-
         return None
+    
+    """
+    LEARNING POINT: A common exercise to split the input data for training and for testing,
+    Reasons:
+    1. To evaluate the model we should not use data from other source,
+       we only trust all data points from this same source.
+    2. To create unseen data to get performance of the model using unseen data later.
+    """
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
+    # create the model variable, 
+    # NOTE: in scikit, Polynomial Regression also using LinearRegression
     modelLR = LinearRegression()
 
-    # print(X)
-    # print(y)
+    if use_polynomial:
+        # Polynomial regression need 'degree' parameter, so create it
+        #degree, poly = create_optimal_polynomial_degree(modelLR, X, y)
+        degree, poly = create_optimal_polynomial_degree(modelLR, X_train.values, y_train.values)
 
-    degree, poly = find_optimal_polynomial_degree(modelLR, X, y)
+        print(f"Polynomial Regression model is created with degree = {degree}")
+    else:
+        # using Linear Regression
+        # with only values (exclude header text)
+        #modelLR.fit(X.values, y.values)
+        modelLR.fit(X_train.values, y_train.values)
+        poly = None # indicate it is Linear Regression
 
-    print(f"Polynomial Regression model is created with degree = {degree}")
+        print(f"Linear Regression model is created")
+
+    # show the coefficient and intercept value
+    print(f"***\n{modelLR.coef_ = }\n{modelLR.intercept_ = }\n***")
+
+    """
+    LEARNING POINT: After model is created, it is time to use the model to predict the same trained data
+    Reasons:
+    1. Model assessment, predicting on the training data allows us
+       to assess how well the model fits the training data.
+    2. Debugging and understanding, Examining the predictions on the training data
+       can help in debugging the model and understanding its behavior.
+       By comparing the predicted values with the actual values in the training set,
+       we can identify potential issues such as underfitting, overfitting, or data preprocessing errors.
+       IF we found problem THEN we can try to update the model
+    """
+    print(f"\n***** Evaluate model using TRAINED data *****")
+    evaluate_model(modelLR, poly, X_train.values, y_train.values)
+    print(f"***** end of evaluation using trained data *****")
+
+    """
+    LEARNING POINT: After model assessment is done and the performance is accepted,
+    then predict the unseen testing data.
+    Reasons:
+    1. Model evaluation, create unseen data to get performance of the model using unseen data later.
+    2. Prevent overfitting, to check if the model is effective only on trained data but not on unseen data.    
+    """
+    print(f"\n***** Evaluate model using UNSEEN TESTING data *****")
+    evaluate_model(modelLR, poly, X_test.values, y_test.values)
+    print(f"***** end of evaluation using unseen testing data *****")
+
+    """
+    LEARNING POINT: Comparing the result of trained data and unseen data,
+    if they are close then the model is good.
+    if they are not close then maybe the model is overfit to the trained data.
+    """
 
     return modelLR, poly
 
-def find_optimal_polynomial_degree(modelLR, X_train, y_train):
+def create_optimal_polynomial_degree(modelLR, X_train, y_train):
+    print(f"Create optimal Polynomial degree")
 
     r2_score_lower_limit_threshold = 0.1
     degree_highest_r2_score = 0
@@ -146,6 +195,12 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
 
     a_r2_score = 0
 
+    """
+    In my experience, higher degree (ie: > 4) normally overfit,    
+    the unseen data can not be predicted well.
+
+    So we set target of lower r2_score to prevent using higher degree.
+    """
     min_r2_score = 0.90 # if more than maybe overfit
 
     y_poly_pred = None
@@ -159,11 +214,10 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
         poly = PolynomialFeatures(degree=degree, include_bias=False)
 
         # transform X_train value to poly        
-        X_train_poly = poly.fit_transform(X_train.values)
+        X_train_poly = poly.fit_transform(X_train)
 
         # train the transformed (using PolynomialFeatures) data
-        # with only values (exclude header text)
-        modelLR.fit(X_train_poly, y_train.values)
+        modelLR.fit(X_train_poly, y_train)
 
         # predict the training data to see r2_score
         y_poly_pred = modelLR.predict(X_train_poly)
@@ -188,8 +242,6 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
 
         degree += 1 # increase trial counter
 
-    
-
     #################################################
     # recreate the model and the poly using the degree_highest_r2_score 
     # because current model and poly may be different than HIGHEST R2 model & poly.
@@ -197,33 +249,20 @@ def find_optimal_polynomial_degree(modelLR, X_train, y_train):
     poly = PolynomialFeatures(degree=degree_highest_r2_score, include_bias=False)
 
     # transform X_train value to poly        
-    X_train_poly = poly.fit_transform(X_train.values)
+    X_train_poly = poly.fit_transform(X_train)
 
     # train the transformed (using PolynomialFeatures) data
-    # with only values (exclude header text)
-    modelLR.fit(X_train_poly, y_train.values)
+    modelLR.fit(X_train_poly, y_train)
     #################################################
-
-    # show the coefficient and intercept value
-    print(f"***\n{modelLR.coef_ = }\n{modelLR.intercept_ = }")
-    print(f"\nHighest r2 score = {highest_r2_score}, degree = {degree_highest_r2_score}\n***")
-
-    ### get mean value of error 
-
-    # change to 1D and convert to int
-    y_poly_pred_flat = y_poly_pred.flatten().astype(int) 
-    print(f"Error rate: {mean_absolute_error(y_train['Price'], y_poly_pred_flat)}")
-
-    ### debugging: compare and find outlier
-    temp = find_outlier_as_table(y_train['Price'], y_poly_pred_flat, 50)
-    pd.set_option('display.max_rows', None)  # Set max_rows to None to display all rows  
-    print(temp) #display
+    
+    print(f"***\nFound optimal Polynomial degree")
+    print(f"Highest r2 score = {highest_r2_score}, degree = {degree_highest_r2_score}\n***")
 
     return degree_highest_r2_score, poly
 
 def find_outlier_as_table(target, predicted, threshold):
     """
-    outlier is data point that stands out from the rest of the group.
+    Outlier is data point that stands out from the rest of the group.
     It's either much higher or lower than most of the other data points in the set.
 
     Create a DataFrame containing target, predicted, MAE, and outlier flag.
@@ -317,44 +356,44 @@ if __name__ == "__main__":
 
         #print(df)
         
-        model, poly = create_polynomial_regression_model(df)
-        if model is None:
-            # NOTE: TESTING only !!
-            create_mapped_text_to_csv(input_filename, df)
+        # create model, use the flag use_polynomial to easily test result between Linear and Polynomial model
+        model, poly = create_model(df, use_polynomial = True)
+        if model is None:            
+            exit(-10)
         else:
             # get input filename, replace extension '.csv' to '.model'
             model_filename = input_filename[0:-4] + '.model'
             save_model(model, poly, model_filename)
 
     else:
-        # option is 'model'
+        # option is 'model', so load it
         model, poly = load_model(input_filename)
         if model is None:
             print(f"error, failed to load model")
-            exit(-4)
+            exit(-20)
 
     # convert string to numpy.array
     js = json.loads(data_str)
     data_to_predict = np.array(js)
-    print(f"data to predict, shape: {data_to_predict.shape}: {data_to_predict}")
+    print(f"data to predict, shape: {data_to_predict.shape}")
+    print(data_to_predict)
 
     # reshape data_to_predict
     #reshaped_data = data_to_predict.reshape(1,-1)
 
-    # apply the same transformation to the data to be predicted, to ensure the data is in the same form as learned data ('model')
-    data_to_predict_poly = poly.transform(data_to_predict)
+    if poly is not None:
+        # apply the same transformation to the data to be predicted, to ensure the data is in the same form as learned data ('model')
+        data_to_predict = poly.transform(data_to_predict)
 
     # predict
-    #result = model.predict(reshaped_data)
-    #result = model.predict([[1,50,2020,12]])
-    result = model.predict(data_to_predict_poly)
+    result = model.predict(data_to_predict)
 
     print(f"prediction result:")
 
     # attempt to display number without 'e+' notation 
     #np.set_printoptions(precision=3, suppress=True) 
     #result = np.round(result, decimals=4)
-    np.set_printoptions(formatter={'float': '{:0.4f}'.format})
+    np.set_printoptions(formatter={'float': '{:0.0f}'.format})
 
     #result = [f'{num:.0f}' for num in result]
     #print(f"{result:.0f}")
