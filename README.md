@@ -26,6 +26,7 @@ Implementing Polynomial Regression in python is only adding a little of extra co
 - Jupyter notebook (https://jupyter.org/)
 - Python 3.8+
 - Matplotlib
+- ipympl # only for interative 3D plot in browser
 
 # How to run
 - In command line, example: python3 app_polynomial_regression_v1.py random_polynomial_house_prices.csv "[[50,1],[50,5],[50,10]]"
