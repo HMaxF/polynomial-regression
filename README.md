@@ -1,7 +1,8 @@
 # Polynomial Regression
-Simple Polynomial Regression demo using Python code in Jupyter Notebook  
+Simple Polynomial Regression demo to show that Polynomial Regression is more accurate than Linear Regression.  
+Implementing Polynomial Regression in python is only adding a little of extra code compared to Linear Regression.
 
-# Steps:
+# Learning steps:
 1. Get the data to make the model
 2. Analyze the correlation features of the data, remove uncorrelated features.
    - Eg: in house price prediction, the total door and total windows may not have strong correlation therefore these features can be removed.
