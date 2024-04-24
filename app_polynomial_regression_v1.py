@@ -21,8 +21,6 @@ from sklearn.metrics import mean_absolute_error # == [abs(a - b)]
 
 import pickle # to save/load model to/from file
 
-import argparse
-
 def save_model(model, poly, filename):
     print('### save_model()')
 
@@ -48,18 +46,20 @@ def evaluate_model(modelLR, poly, X, y):
 
     if poly is None:
         # using Linear
+
+        # predict
         y_pred = modelLR.predict(X)
     else:
         # using poly
-        # convert data to predict to poly
-
+                
         # transform X_train value to poly to make it in the same form
         X_poly = poly.transform(X)
 
+        # predict
         y_pred = modelLR.predict(X_poly)
 
     """
-    LEARNING POINT: check the accuracy after predict
+    LEARNING POINT: after predict then check the accuracy
     """    
     # 1st check using R2 score
     a_r2_score = r2_score(y, y_pred)
@@ -72,29 +72,70 @@ def evaluate_model(modelLR, poly, X, y):
     print(f"MeanAbsoluteError = {mae:,.1f}, [close to 0.0 is better]")
     #print(f"###\n")
 
-    ####### OPTIONAL: extra task to find outliers using MAE (Mean Absolute Error) #####################
-    find_outliers = True 
-    if find_outliers:
+    """
+    LEARNING POINT: to improve accuracy, we can search and remove outliers.
+
+    NOTE: 
+    1. Removing outliers is optional.
+    2. IF we want to search for outlier in a dataset, we can use Interquartile Range (IQR)
+       but if we want to search for outlier after prediction then this is 1 of the many ways.
+    """
+    find_outliers_after_prediction = True 
+    if find_outliers_after_prediction:
         # change to 1D and convert to int
         y_pred = y_pred.flatten().astype(int) 
-        #print(f"Error rate: {mean_absolute_error(y, y_pred)}")
 
-        ### debugging: compare and find outlier
-        temp = find_outlier_as_table(y.flatten(), y_pred, 1000) # flatten y to 1D array
+        # Use 'Threshold' as limit to compare and find outliers.
+        # What 'Threshold' value is suitable? that is depend on our data!!
+        threshold = 1000
+        temp = find_outlier_as_table(y.flatten(), y_pred, threshold) # flatten y to 1D array
 
         print(f"===== Outliers table =====")
         #pd.set_option('display.max_rows', None)  # Set max_rows to None to display all rows  
-        print(temp) #display
+        print(temp) # display to check visually
 
         """
-        NOTE: after outliers are found, make list of reasons whether to keep or remove outliers,
+        After outliers are found, analyze whether to keep or remove outliers,
         1. Sometimes outliers are useful in continuous regression.
-        2. Analyze if one or more features may not have strong **Correlation**, so need to check and remove the feature.
+        2. Analyze if one or more features may not have strong **Correlation**,
+            so need to check and remove the feature then re-build model.
+            eg: in house price prediction, the total doors and total windows
+                may not have strong correlation therefore these features can be removed.
         """
 
     ############ end of optional #####################################
 
     return
+
+def find_outlier_as_table(target, predicted, threshold):
+    """
+    Outlier is data point that stands out from the rest of the group.
+    It's either much higher or lower than most of the other data points in the set.
+
+    Create a DataFrame containing target, predicted, MAE, and outlier flag.
+    Parameters:
+    target (list or array-like): The array of actual values.
+    predicted (list or array-like): The array of predicted values.
+    threshold (float): The threshold value for detecting outliers.
+
+    Returns:
+    pandas.DataFrame: DataFrame containing target, predicted, MAE, and outlier flag.
+    """
+    # Calculate Mean Absolute Error (MAE)
+    mae = [abs(t - p) for t, p in zip(target, predicted)]
+    
+    # Determine outliers
+    outliers = [1 if error > threshold else 0 for error in mae]
+    
+    # Create DataFrame
+    df = pd.DataFrame({
+        'target': target,
+        'predicted': predicted,
+        'mae': mae,
+        'outlier': outliers
+    })
+    
+    return df
 
 
 # function to build optimal model
@@ -111,7 +152,7 @@ def create_model(df, use_polynomial):
 
     """
     Optional check: data to learn (X) should be numerical (int or float), there should NOT be any blank, text, or symbol.    
-    """    
+    """
     numeric_df = df.apply(pd.to_numeric, errors='coerce')
     is_all_numeric = not numeric_df.isnull().values.any()
     if is_all_numeric == False:
@@ -134,21 +175,19 @@ def create_model(df, use_polynomial):
 
     if use_polynomial:
         # Polynomial regression need 'degree' parameter, so create it
-        #degree, poly = create_optimal_polynomial_degree(modelLR, X, y)
         degree, poly = create_optimal_polynomial_degree(modelLR, X_train.values, y_train.values)
 
-        print(f"Polynomial Regression model is created with degree = {degree}")
+        #print(f"Polynomial Regression model is created with degree = {degree}")
     else:
         # using Linear Regression
         # with only values (exclude header text)
-        #modelLR.fit(X.values, y.values)
         modelLR.fit(X_train.values, y_train.values)
         poly = None # indicate it is Linear Regression
 
         print(f"Linear Regression model is created")
 
     # show the coefficient and intercept value
-    print(f"***\n{modelLR.coef_ = }\n{modelLR.intercept_ = }\n***")
+    print(f"***\nCoefficients = {modelLR.coef_}\nIntercept = {modelLR.intercept_}\n***")
 
     """
     LEARNING POINT: After model is created, it is time to use the model to predict the same trained data
@@ -179,7 +218,8 @@ def create_model(df, use_polynomial):
     """
     LEARNING POINT: Comparing the result of trained data and unseen data,
     if they are close then the model is good.
-    if they are not close then maybe the model is overfit to the trained data.
+    if they are not close then maybe the model is overfit to the trained data
+        and if the model is overfit then reduce the 'degree' value.
     """
 
     return modelLR, poly
@@ -191,7 +231,7 @@ def create_optimal_polynomial_degree(modelLR, X_train, y_train):
     degree_highest_r2_score = 0
     highest_r2_score = 0
 
-    degree = 2 # start value NOTE: first loop the value should be >= 2
+    degree = 2 # NOTE: minimum Polynomial degree is 2
 
     a_r2_score = 0
 
@@ -205,7 +245,7 @@ def create_optimal_polynomial_degree(modelLR, X_train, y_train):
 
     y_poly_pred = None
 
-    # EXAMPLE logic to find optional 'degree' ONLY up to 10
+    # In this example, find optimal 'degree' ONLY up to 10
     while degree <= 10 and a_r2_score < min_r2_score: 
         """
         WARNING: the higher the 'degree' value, the SLOWER the prediction !!!
@@ -255,40 +295,10 @@ def create_optimal_polynomial_degree(modelLR, X_train, y_train):
     modelLR.fit(X_train_poly, y_train)
     #################################################
     
-    print(f"***\nFound optimal Polynomial degree")
-    print(f"Highest r2 score = {highest_r2_score}, degree = {degree_highest_r2_score}\n***")
+    print(f"***\nFound optimal Polynomial degree = {degree_highest_r2_score}")
+    print(f"Highest r2 score = {highest_r2_score}\n***")
 
     return degree_highest_r2_score, poly
-
-def find_outlier_as_table(target, predicted, threshold):
-    """
-    Outlier is data point that stands out from the rest of the group.
-    It's either much higher or lower than most of the other data points in the set.
-
-    Create a DataFrame containing target, predicted, MAE, and outlier flag.
-    Parameters:
-    target (list or array-like): The array of actual values.
-    predicted (list or array-like): The array of predicted values.
-    threshold (float): The threshold value for detecting outliers.
-
-    Returns:
-    pandas.DataFrame: DataFrame containing target, predicted, MAE, and outlier flag.
-    """
-    # Calculate Mean Absolute Error (MAE)
-    mae = [abs(t - p) for t, p in zip(target, predicted)]
-    
-    # Determine outliers
-    outliers = [1 if error > threshold else 0 for error in mae]
-    
-    # Create DataFrame
-    df = pd.DataFrame({
-        'target': target,
-        'predicted': predicted,
-        'mae': mae,
-        'outlier': outliers
-    })
-    
-    return df
 
 def load_csv_into_dataframe(csv_filename):
     try:
@@ -315,27 +325,12 @@ def show_usage():
 
 if __name__ == "__main__":
 
-    """
-    # get parameter using 'argparse'
-    parser = argparse.ArgumentParser(description='Polynomial  Regression Model Trainer')
-    parser.add_argument('filename', type=str, help='Path to the CSV file')
-    parser.add_argument('predict', type=str, help='Data to predict')
-    args = parser.parse_args()
-
-    # check filename
-    if args.filename == None:
-        # print(f"parameter 'filename' not found")
-        show_usage()
-        exit(-1)
-    """
-
     # manually parse the arguments
     if len(sys.argv) != 3:
         show_usage()
         exit(-1)
     
     # Extract the filename from the command-line arguments
-    #input_filename = args.filename    
     input_filename = sys.argv[1]
     data_str = sys.argv[2]
 
@@ -357,13 +352,14 @@ if __name__ == "__main__":
         #print(df)
         
         # create model, use the flag use_polynomial to easily test result between Linear and Polynomial model
-        model, poly = create_model(df, use_polynomial = True)
+        model, poly = create_model(df, use_polynomial = False)
         if model is None:            
             exit(-10)
         else:
             # get input filename, replace extension '.csv' to '.model'
             model_filename = input_filename[0:-4] + '.model'
             save_model(model, poly, model_filename)
+            # this model can be use later to predict without building model.
 
     else:
         # option is 'model', so load it
@@ -378,9 +374,6 @@ if __name__ == "__main__":
     print(f"data to predict, shape: {data_to_predict.shape}")
     print(data_to_predict)
 
-    # reshape data_to_predict
-    #reshaped_data = data_to_predict.reshape(1,-1)
-
     if poly is not None:
         # apply the same transformation to the data to be predicted, to ensure the data is in the same form as learned data ('model')
         data_to_predict = poly.transform(data_to_predict)
@@ -390,15 +383,9 @@ if __name__ == "__main__":
 
     print(f"prediction result:")
 
-    # attempt to display number without 'e+' notation 
-    #np.set_printoptions(precision=3, suppress=True) 
-    #result = np.round(result, decimals=4)
+    # attempt to display number without 'e+' notation
     np.set_printoptions(formatter={'float': '{:0.0f}'.format})
 
-    #result = [f'{num:.0f}' for num in result]
-    #print(f"{result:.0f}")
-    #print(result)
-    #result = f"{result:.2f}"
     print(result)
 
     print(f"*** app is ended normally ***")
