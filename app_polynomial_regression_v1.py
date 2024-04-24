@@ -1,10 +1,17 @@
 """
-Application to build Machine Learning model based on input data.
+Demo to show Polynomial Regression has better accuracy than Linear Regression.
 
-App v0.99
+Using Polynomial Regression is only need a litle bit more code.
 
+Demo v1.0
 Hariyanto Lim
+Last update: 2024-04-20
 """
+# interactive mode for Jupyter notebbok in browser (not in command line)
+# require: pip install ipympl
+#%matplotlib widget
+import matplotlib.pylab as plt
+
 import sys # to get arguments (parameter) manually
 
 import pandas as pd
@@ -311,6 +318,33 @@ def load_csv_into_dataframe(csv_filename):
 
     return None
 
+""" 
+If we can visualize the data then it will be easier to understand.
+
+This function only can visualize the data in 3D plot using 3 columns
+"""
+def visualizeIn3D(df):
+    if df.shape[1] != 3:
+        return # can not show
+        
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    
+    ax.set_title('My data in 3D')
+    ax.set_xlabel(df.columns[0])
+    ax.set_ylabel(df.columns[1])
+    ax.set_zlabel(df.columns[2])
+
+    ax.scatter(df.iloc[:,0],df.iloc[:,1],df.iloc[:,2], marker='^')
+        
+    #ax.legend()
+    
+    # in 3D, use mouse to click (empty area) and drag to change viewing point
+    
+    # important to block and to display plot properly (avoid black empty window in Linux or Jupyter Notebook)
+    plt.show()#block=True) # code will continue after the window is closed
+    
+
 def show_usage():
     print(f"Simple Polynomial Regression")
     print(f"positional arguments:")
@@ -350,6 +384,8 @@ if __name__ == "__main__":
             exit(-3)
 
         #print(df)
+
+        visualizeIn3D(df)
         
         # create model, use the flag use_polynomial to easily test result between Linear and Polynomial model
         model, poly = create_model(df, use_polynomial = False)
