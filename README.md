@@ -20,7 +20,10 @@ Implementing Polynomial Regression in python is only adding a little of extra co
    - If the prediction result is far (a lot of gaps) then the model maybe overfit, need to reduce 'degree' value.
 8. Extra: Find outlier (data point that is noticeably different from the rest which may be considered as "invalid" data)
    - Using Mean Absolute Error (MAE) & Threshold to find outliers.
-   - If we found outliers then we can do further analysis if we need to remove them to improve model.
+   - If we found outliers then we can do further analysis to
+     a. If there is any features that is not a strong correlation, delete them.
+       - eg: in house price prediction, the total doors and total windows may not have strong correlation to the price therefore these features can be removed.
+     b. If need to remove them to improve model.
 
 # Requirement
 - Jupyter notebook (https://jupyter.org/)
