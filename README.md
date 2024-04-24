@@ -21,9 +21,9 @@ Implementing Polynomial Regression in python is only adding a little of extra co
 8. Extra: Find outlier (data point that is noticeably different from the rest which may be considered as "invalid" data)
    - Using Mean Absolute Error (MAE) & Threshold to find outliers.
    - If we found outliers then we can do further analysis to
-     ** If there is any features that is not a strong correlation, delete them.
-     *** eg: in house price prediction, the total doors and total windows may not have strong correlation to the price therefore these features can be removed.
-     ** If need to remove them to improve model.
+     * If there is any features that is not a strong correlation to the target value.
+       * eg: in house price prediction, the 'total doors' and 'total windows' may not have strong correlation to the price therefore these features can be removed.
+     * Delete outliers to improve model accuracy.
 
 # Requirement
 - Jupyter notebook (https://jupyter.org/)
